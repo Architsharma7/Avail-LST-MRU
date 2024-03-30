@@ -7,6 +7,7 @@
                 "amount": 90,
                 "isBridged": false
             }
-        ]
+        ],
+        "avl": []
     }
 }

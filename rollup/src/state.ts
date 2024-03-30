@@ -12,6 +12,14 @@ export type ERC20Leaves = {
   }[];
 }[];
 
+export type AVLLeaves = {
+  avlsubstrateAddress: string;
+  address: string;
+  freeBalance: number;
+  stakedShares: number;
+  nonce: number;
+}[];
+
 export type BridgeLeaves = {
   toaddress: string;
   amount: number;
@@ -21,6 +29,7 @@ export type BridgeLeaves = {
 export type Leaves = {
   erc20: ERC20Leaves;
   bridge: BridgeLeaves;
+  avl : AVLLeaves;
 };
 
 export class BetterMerkleTree {
@@ -28,16 +37,20 @@ export class BetterMerkleTree {
   public merkleTreeBridge: MerkleTree;
   public erc20leaves: ERC20Leaves;
   public bridgeleaves: BridgeLeaves;
+  public avlleaves: AVLLeaves;
+  public merkleTreeAVL: MerkleTree;
 
-  constructor(erc20: ERC20Leaves, bridge: BridgeLeaves) {
-    let { merkleTreeERC20, merkleTreeBridge } = this.createTree(erc20, bridge);
+  constructor(erc20: ERC20Leaves, bridge: BridgeLeaves, avl: AVLLeaves) {
+    let { merkleTreeERC20, merkleTreeBridge, merkleTreeAVL } = this.createTree(erc20, bridge, avl);
     this.merkleTreeERC20 = merkleTreeERC20;
     this.merkleTreeBridge = merkleTreeBridge;
     this.erc20leaves = erc20;
     this.bridgeleaves = bridge;
+    this.merkleTreeAVL = merkleTreeAVL;
+    this.avlleaves = avl;
   }
 
-  createTree(erc20: ERC20Leaves, bridge: BridgeLeaves) {
+  createTree(erc20: ERC20Leaves, bridge: BridgeLeaves, avl: AVLLeaves) {
     const hashedLeavesERC20 = erc20.map((leaf) => {
       return solidityPackedKeccak256(
         ["address", "uint256", "uint256"],
@@ -60,7 +73,18 @@ export class BetterMerkleTree {
       solidityPackedKeccak256
     );
 
-    return { merkleTreeERC20, merkleTreeBridge };
+    const hashedLeavesAVL = avl.map((leaf) => {
+      return solidityPackedKeccak256(
+        ["string", "address", "uint256", "uint256", "uint256"],
+        [leaf.avlsubstrateAddress, leaf.address, leaf.freeBalance, leaf.stakedShares, leaf.nonce]
+      );
+    });
+    let merkleTreeAVL = new MerkleTree(
+      hashedLeavesAVL,
+      solidityPackedKeccak256
+    );
+
+    return { merkleTreeERC20, merkleTreeBridge, merkleTreeAVL };
   }
 }
 
@@ -70,7 +94,7 @@ export class ERC20 extends State<Leaves, BetterMerkleTree> {
   }
 
   wrap(state: Leaves): BetterMerkleTree {
-    const newTree = new BetterMerkleTree(state.erc20, state.bridge);
+    const newTree = new BetterMerkleTree(state.erc20, state.bridge, state.avl);
     return newTree;
   }
 
@@ -82,31 +106,42 @@ export class ERC20 extends State<Leaves, BetterMerkleTree> {
     return {
       erc20: this.wrappedState.erc20leaves,
       bridge: this.wrappedState.bridgeleaves,
+      avl: this.wrappedState.avlleaves,
     };
   }
 
   calculateRoot(): BytesLike {
     if (
       this.wrappedState.erc20leaves.length === 0 &&
-      this.wrappedState.bridgeleaves.length === 0
+      this.wrappedState.bridgeleaves.length === 0 &&
+      this.wrappedState.avlleaves.length === 0
     ) {
       return ZeroHash;
     } else if (
       this.wrappedState.erc20leaves.length !== 0 &&
-      this.wrappedState.bridgeleaves.length === 0
+      this.wrappedState.bridgeleaves.length === 0 &&
+      this.wrappedState.avlleaves.length === 0
     ) {
       return this.wrappedState.merkleTreeERC20.getHexRoot();
     } else if (
       this.wrappedState.erc20leaves.length === 0 &&
-      this.wrappedState.bridgeleaves.length !== 0
+      this.wrappedState.bridgeleaves.length !== 0 &&
+      this.wrappedState.avlleaves.length === 0
     ) {
       return this.wrappedState.merkleTreeBridge.getHexRoot();
+    } else if (
+      this.wrappedState.erc20leaves.length === 0 &&
+      this.wrappedState.bridgeleaves.length === 0 &&
+      this.wrappedState.avlleaves.length !== 0
+    ) {
+      return this.wrappedState.merkleTreeAVL.getHexRoot();
     }
     const finalRoot = solidityPackedKeccak256(
-      ["string", "string"],
+      ["string", "string", "string"],
       [
         this.wrappedState.merkleTreeERC20.getHexRoot(),
         this.wrappedState.merkleTreeBridge.getHexRoot(),
+        this.wrappedState.merkleTreeAVL.getHexRoot(),
       ]
     );
     return finalRoot;

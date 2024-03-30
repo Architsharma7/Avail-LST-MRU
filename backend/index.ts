@@ -4,10 +4,13 @@ import axios from "axios";
 import cors from "cors";
 import { ethers } from "ethers";
 import { LSTContractAddress, LSTABI } from "./constants";
+import dotenv from "dotenv";
 
 const port = 3002;
 const rollupPort = 3001;
 app.use(cors());
+
+dotenv.config();
 
 type BridgeLeaves = {
   toaddress: string;
@@ -82,12 +85,6 @@ async function updateRollupState(bridge: BridgeLeaves) {
     console.log("eiptypes", eip712Types);
     const signature = await wallet.signTypedData(domain, eip712Types, payload);
     console.log(`Signature: ${signature}`);
-    // const response = await axios.post(`http://localhost:3001/fulfillBridge`, {
-    //   msgSender: wallet.address,
-    //   signature: signature,
-    //   payload: { toaddress: toAddress },
-    // });
-    // console.log("Rollup state updated successfully:", response.data);
 
     const body = JSON.stringify({
       msgSender: wallet.address,
@@ -110,7 +107,7 @@ async function updateRollupState(bridge: BridgeLeaves) {
 }
 
 function startPolling() {
-  const pollingInterval = 10000;
+  const pollingInterval = 20000;
   const pollingTimer = setInterval(fetchBridgeData, pollingInterval);
 }
 

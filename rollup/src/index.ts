@@ -14,13 +14,6 @@ app.use(express.json());
 
 const playground = Playground.init(mru);
 
-playground.addGetMethod(
-  "/custom/hello",
-  async (_req: Request, res: Response) => {
-    res.send("Hello World");
-  }
-);
-
 const { actions, chain, events } = mru;
 
 app.get("/actions/:hash", async (req: Request, res: Response) => {
