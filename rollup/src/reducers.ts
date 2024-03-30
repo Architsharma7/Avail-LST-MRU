@@ -1,5 +1,7 @@
 import { Reducers, STF } from "@stackr/sdk/machine";
 import { ERC20, BetterMerkleTree as StateWrapper } from "./state";
+const { blake2AsHex } = require("@polkadot/util-crypto");
+import { ZeroAddress } from "ethers";
 
 // --------- Utilities ---------
 const findIndexOfAccountERC20 = (state: StateWrapper, address: string) => {
@@ -24,6 +26,15 @@ type BridgeInput = {
   toaddress: string;
   amount: number;
   isBridged: boolean;
+};
+
+type RequestStakeAVLInput = {
+  timestamp: string;
+};
+
+type FulfillStakeAVLInput = {
+  avlAddress: string;
+  sharesToMint: number;
 };
 
 // --------- State Transition Handlers ---------
@@ -175,6 +186,107 @@ const transferFrom: STF<ERC20, BaseActionInput> = {
   },
 };
 
+type BridgeAVLtoAppInput = {
+  avlAddress: string;
+  amount: number;
+  evmAddressHash: string;
+};
+
+type ClaimAVLAccountInput = {
+  avlAddress: string;
+};
+
+const bridgeAVLtoApp: STF<ERC20, BridgeAVLtoAppInput> = {
+  handler: ({ inputs, state, msgSender }) => {
+    // TODO: CAN ONLY BE CALLED BY OPERATOR
+    const { avlAddress, amount, evmAddressHash } = inputs;
+
+    const idx = state.avlleaves.findIndex(
+      (account) => account.avlAddress === avlAddress
+    );
+    if (idx === -1) {
+      state.avlleaves.push({
+        evmAddress: "",
+        avlAddress: avlAddress,
+        freeBalance: amount,
+        stakingShares: 0,
+        evmAddressHash: evmAddressHash,
+        claimed: false,
+        nonce: 0,
+        requestedStake: false,
+      });
+    } else {
+      state.avlleaves[idx].freeBalance += amount;
+    }
+
+    return state;
+  },
+};
+
+const claimAVLAccount: STF<ERC20, ClaimAVLAccountInput> = {
+  handler: ({ inputs, state, msgSender }) => {
+    const { avlAddress } = inputs;
+    const idx = state.avlleaves.findIndex(
+      (account) => account.avlAddress === avlAddress
+    );
+    if (idx === -1) {
+      throw new Error("AVL ADDRESS NO EXIST");
+    }
+
+    const senderHash = blake2AsHex(msgSender as string);
+    if (state.avlleaves[idx].evmAddressHash !== senderHash) {
+      throw new Error("WRONG OWNER");
+    }
+
+    state.avlleaves[idx].evmAddress = msgSender as string;
+    state.avlleaves[idx].claimed = true;
+
+    return state;
+  },
+};
+
+const requestStakeAVL: STF<ERC20, RequestStakeAVLInput> = {
+  handler: ({ inputs, state, msgSender }) => {
+    const accountIdx = state.avlleaves.findIndex(
+      (acc) => acc.evmAddress == msgSender
+    );
+    if (accountIdx === -1) throw new Error("requestStakeAVL: ACCOUNT INVALID");
+
+    if (
+      state.avlleaves[accountIdx].claimed === true &&
+      state.avlleaves[accountIdx].requestedStake === false
+    ) {
+      state.avlleaves[accountIdx].requestedStake = true;
+    } else {
+      throw new Error("requestStakeAVL: INVALID OPERATION");
+    }
+
+    return state;
+  },
+};
+
+const fulfillStakeAVL: STF<ERC20, FulfillStakeAVLInput> = {
+  handler: ({ inputs, state, msgSender }) => {
+    const { avlAddress, sharesToMint } = inputs;
+
+    const accountIdx = state.avlleaves.findIndex(
+      (acc) => acc.avlAddress === avlAddress
+    );
+    if (accountIdx === -1) {
+      throw new Error("fulfillStakeAVL: ACCOUNT INVALID");
+    }
+
+    if (state.avlleaves[accountIdx].requestedStake) {
+      state.avlleaves[accountIdx].freeBalance = 0;
+      state.avlleaves[accountIdx].stakingShares = sharesToMint;
+      state.avlleaves[accountIdx].requestedStake = false;
+    } else {
+      throw new Error("fulfillStakeAVL: INVALID OPERATION");
+    }
+    return state;
+  },
+};
+
 export const reducers: Reducers<ERC20> = {
   create,
   mint,
@@ -184,4 +296,8 @@ export const reducers: Reducers<ERC20> = {
   transferFrom,
   requestBridge,
   fulfillBridge,
+  bridgeAVLtoApp,
+  claimAVLAccount,
+  requestStakeAVL,
+  fulfillStakeAVL,
 };

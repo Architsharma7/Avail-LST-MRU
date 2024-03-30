@@ -13,11 +13,14 @@ export type ERC20Leaves = {
 }[];
 
 export type AVLLeaves = {
-  avlsubstrateAddress: string;
-  address: string;
+  evmAddress: string;
+  avlAddress: string;
   freeBalance: number;
-  stakedShares: number;
+  stakingShares: number;
+  evmAddressHash: string;
+  claimed: boolean;
   nonce: number;
+  requestedStake: boolean;
 }[];
 
 export type BridgeLeaves = {
@@ -29,7 +32,7 @@ export type BridgeLeaves = {
 export type Leaves = {
   erc20: ERC20Leaves;
   bridge: BridgeLeaves;
-  avl : AVLLeaves;
+  avl: AVLLeaves;
 };
 
 export class BetterMerkleTree {
@@ -41,7 +44,11 @@ export class BetterMerkleTree {
   public merkleTreeAVL: MerkleTree;
 
   constructor(erc20: ERC20Leaves, bridge: BridgeLeaves, avl: AVLLeaves) {
-    let { merkleTreeERC20, merkleTreeBridge, merkleTreeAVL } = this.createTree(erc20, bridge, avl);
+    let { merkleTreeERC20, merkleTreeBridge, merkleTreeAVL } = this.createTree(
+      erc20,
+      bridge,
+      avl
+    );
     this.merkleTreeERC20 = merkleTreeERC20;
     this.merkleTreeBridge = merkleTreeBridge;
     this.erc20leaves = erc20;
@@ -75,8 +82,26 @@ export class BetterMerkleTree {
 
     const hashedLeavesAVL = avl.map((leaf) => {
       return solidityPackedKeccak256(
-        ["string", "address", "uint256", "uint256", "uint256"],
-        [leaf.avlsubstrateAddress, leaf.address, leaf.freeBalance, leaf.stakedShares, leaf.nonce]
+        [
+          "address",
+          "string",
+          "uint256",
+          "uint256",
+          "string",
+          "bool",
+          "uint256",
+          "bool"
+        ],
+        [
+          leaf.evmAddress,
+          leaf.avlAddress,
+          leaf.freeBalance,
+          leaf.stakingShares,
+          leaf.evmAddressHash,
+          leaf.claimed,
+          leaf.nonce,
+          leaf.requestedStake
+        ]
       );
     });
     let merkleTreeAVL = new MerkleTree(
@@ -114,7 +139,7 @@ export class ERC20 extends State<Leaves, BetterMerkleTree> {
     if (
       this.wrappedState.erc20leaves.length === 0 &&
       this.wrappedState.bridgeleaves.length === 0 &&
-      this.wrappedState.avlleaves.length === 0
+      this.wrappedState.avlleaves.length === 0 
     ) {
       return ZeroHash;
     } else if (
@@ -145,5 +170,6 @@ export class ERC20 extends State<Leaves, BetterMerkleTree> {
       ]
     );
     return finalRoot;
+    // return solidityPackedKeccak256(["string"], [JSON.stringify(this.wrappedState.erc20leaves)]);
   }
 }

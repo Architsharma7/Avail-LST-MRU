@@ -20,6 +20,20 @@ export const bridgeTokenSchema = new ActionSchema("bridgeToken", {
   isBridged: SolidityType.BOOL,
 });
 
+export const bridgeAVLtoAppSchema = new ActionSchema("bridgeAVLtoApp", {
+  avlAddress: SolidityType.STRING,
+  amount: SolidityType.UINT,
+  evmAddressHash: SolidityType.STRING
+});
+
+export const claimAVLAccountSchema = new ActionSchema("claimAVLAccount", {
+  avlAddress: SolidityType.STRING
+})
+
+export const requestStakeAVLSchema = new ActionSchema("StakeAVL", {
+  timestamp: SolidityType.STRING
+})
+
 // transferSchema is a collection of all the transfer actions
 // that can be performed on the rollup
 export const schemas = {
@@ -31,4 +45,7 @@ export const schemas = {
   approve: generateSchemaFromBase("approve"),
   requestBridge: bridgeTokenSchema,
   fulfillBridge: bridgeTokenSchema,
+  bridgeAVLtoApp: bridgeAVLtoAppSchema,
+  claimAVLAccount: claimAVLAccountSchema,
+  requestStakeAVL: requestStakeAVLSchema,
 };

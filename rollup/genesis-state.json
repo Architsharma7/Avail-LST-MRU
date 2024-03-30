@@ -1,13 +1,7 @@
 {
     "state": {
         "erc20": [],
-        "bridge": [
-            {
-                "toaddress": "0xC2baeb8b13cb54aA47dd5b4B63dA3876577b1AD5",
-                "amount": 90,
-                "isBridged": false
-            }
-        ],
+        "bridge": [],
         "avl": []
     }
 }
