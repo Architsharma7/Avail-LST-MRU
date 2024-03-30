@@ -1,5 +1,4 @@
 import express, { Request, Response } from "express";
-
 import { ActionEvents } from "@stackr/sdk";
 import { Playground } from "@stackr/sdk/plugins";
 import { schemas } from "./actions.ts";
@@ -70,6 +69,15 @@ app.post("/:reducerName", async (req: Request, res: Response) => {
   return;
 });
 
+type ActionName = keyof typeof schemas;
+
+app.get("/getEIP712Types/:action", (_req: Request, res: Response) => {
+  //@ts-ignore
+  const { action }: { action: ActionName } = _req.params;
+  const eip712Types = schemas[action].EIP712TypedData.types;
+  return res.send({ eip712Types });
+});
+
 events.subscribe(ActionEvents.SUBMIT, (args) => {
   console.log("Submitted an action", args);
 });
@@ -82,6 +90,6 @@ app.get("/", (_req: Request, res: Response) => {
   return res.send({ state: erc20Machine?.state.unwrap() });
 });
 
-app.listen(3000, () => {
-  console.log("listening on port 3000");
+app.listen(3001, () => {
+  console.log("listening on port 3001");
 });

@@ -87,14 +87,28 @@ export class ERC20 extends State<Leaves, BetterMerkleTree> {
 
   calculateRoot(): BytesLike {
     if (
-      this.wrappedState.bridgeleaves.length === 0 ||
-      this.wrappedState.erc20leaves.length === 0
+      this.wrappedState.erc20leaves.length === 0 &&
+      this.wrappedState.bridgeleaves.length === 0
     ) {
       return ZeroHash;
+    } else if (
+      this.wrappedState.erc20leaves.length !== 0 &&
+      this.wrappedState.bridgeleaves.length === 0
+    ) {
+      return this.wrappedState.merkleTreeERC20.getHexRoot();
+    } else if (
+      this.wrappedState.erc20leaves.length === 0 &&
+      this.wrappedState.bridgeleaves.length !== 0
+    ) {
+      return this.wrappedState.merkleTreeBridge.getHexRoot();
     }
-    return (
-      this.wrappedState.merkleTreeERC20.getHexRoot(),
-      this.wrappedState.merkleTreeBridge.getHexRoot()
+    const finalRoot = solidityPackedKeccak256(
+      ["string", "string"],
+      [
+        this.wrappedState.merkleTreeERC20.getHexRoot(),
+        this.wrappedState.merkleTreeBridge.getHexRoot(),
+      ]
     );
+    return finalRoot;
   }
 }
