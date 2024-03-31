@@ -16,7 +16,7 @@ const provider = new ethers.JsonRpcProvider(
 );
 // const walletPrivateKey = process.env.PRIVATE_KEY;
 const walletPrivateKey =
-  "a3fca102e683a3c210a99e85c81d5e8725e5845cf1ada682d7afe433a0e2b968";
+  "";
 //@ts-ignore
 const wallet = new ethers.Wallet(walletPrivateKey, provider);
 const erc20Contract = new ethers.Contract(LSTContractAddress, LSTABI, wallet);
