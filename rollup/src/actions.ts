@@ -34,6 +34,11 @@ export const requestStakeAVLSchema = new ActionSchema("StakeAVL", {
   timestamp: SolidityType.STRING
 })
 
+export const fulfillStakeAVLSchema = new ActionSchema("FulfillStakeAVL", {
+  avlAddress: SolidityType.STRING,
+  sharesToMint: SolidityType.UINT
+});
+
 // transferSchema is a collection of all the transfer actions
 // that can be performed on the rollup
 export const schemas = {
@@ -48,4 +53,5 @@ export const schemas = {
   bridgeAVLtoApp: bridgeAVLtoAppSchema,
   claimAVLAccount: claimAVLAccountSchema,
   requestStakeAVL: requestStakeAVLSchema,
+  fulfillStakeAVL: fulfillStakeAVLSchema
 };

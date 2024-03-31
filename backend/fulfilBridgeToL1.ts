@@ -1,16 +1,8 @@
-const express = require("express");
-const app = express();
 import axios from "axios";
 import cors from "cors";
 import { ethers } from "ethers";
 import { LSTContractAddress, LSTABI } from "./constants";
 import dotenv from "dotenv";
-
-const port = 3002;
-const rollupPort = 3001;
-app.use(cors());
-
-dotenv.config();
 
 type BridgeLeaves = {
   toaddress: string;
@@ -18,53 +10,16 @@ type BridgeLeaves = {
   isBridged: boolean;
 };
 
-const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
-const walletPrivateKey = process.env.PRIVATE_KEY;
+// const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
+const provider = new ethers.JsonRpcProvider(
+  "https://sepolia.infura.io/v3/ba8a3893f5f34779b1ea295f176a73c6"
+);
+// const walletPrivateKey = process.env.PRIVATE_KEY;
+const walletPrivateKey =
+  "a3fca102e683a3c210a99e85c81d5e8725e5845cf1ada682d7afe433a0e2b968";
 //@ts-ignore
 const wallet = new ethers.Wallet(walletPrivateKey, provider);
 const erc20Contract = new ethers.Contract(LSTContractAddress, LSTABI, wallet);
-
-let bridgeData = null;
-
-async function checkServerAvailability() {
-  try {
-    const response = await axios.get("http://localhost:3001/");
-    if (response.status === 200) {
-      startPolling();
-    } else {
-      console.error("Server is not running or returned an error.");
-    }
-  } catch (error) {
-    console.error("Error checking server availability");
-  }
-}
-
-const fetchBridgeData = async () => {
-  try {
-    const response = await axios.get("http://localhost:3001/");
-    bridgeData = response.data.state.bridge;
-    console.log("Bridge data fetched:", bridgeData);
-    if (bridgeData) {
-      //@ts-ignore
-      const unbridgedObjects = bridgeData?.filter(
-        (obj: any) => obj.isBridged === false
-      );
-      console.log("Unbridged objects:", unbridgedObjects);
-      await unbridgedObjects.forEach(async (item: BridgeLeaves) => {
-        if (item.isBridged === false) {
-          await mintTokens(item.toaddress, item.amount);
-          await updateRollupState({
-            toaddress: item.toaddress,
-            amount: item.amount,
-            isBridged: false,
-          });
-        }
-      });
-    }
-  } catch (error) {
-    console.log(error);
-  }
-};
 
 const domain = {
   name: "Stackr MVP v0",
@@ -106,26 +61,44 @@ async function updateRollupState(bridge: BridgeLeaves) {
   }
 }
 
-function startPolling() {
-  const pollingInterval = 20000;
-  const pollingTimer = setInterval(fetchBridgeData, pollingInterval);
-}
-
 async function mintTokens(toAddress: string, amount: number) {
   let _amount = BigInt(amount);
-  _amount = _amount * BigInt(10 ** 18);
+  console.log("amount", amount);
 
   try {
     const tx = await erc20Contract.mint(toAddress, _amount);
-    await tx.wait();
+    console.log(tx);
+    const receipt = await tx.wait();
+    console.log(receipt);
     console.log("Tokens minted successfully.");
   } catch (error) {
     console.error("Error minting tokens:", error);
   }
 }
 
-checkServerAvailability();
+const fulfilBridgeToL1 = async () => {
+  try {
+    const response = await axios.get("http://localhost:3001/");
+    const avlData = response.data.state.avl;
+    console.log("Bridge data fetched:", avlData);
+    const bridgeData = response.data.state.bridge;
+    console.log("Bridge data fetched:", bridgeData);
+    // TODO: Fix this
+    if (avlData) {
+      await avlData.forEach(async (item) => {
+        console.log(item);
+        // this is not the right way of passing the amount, there might be multiple objects in avl and bridge
+        await mintTokens(item.evmAddress, bridgeData[0].amount);
+        await updateRollupState({
+          toaddress: item.evmAddress,
+          amount: item.stakingShares,
+          isBridged: false,
+        });
+      });
+    }
+  } catch (error) {
+    console.log(error);
+  }
+};
 
-app.listen(port, () => {
-  console.log(`Express server listening at http://localhost:${port}`);
-});
+fulfilBridgeToL1();

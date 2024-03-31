@@ -12,6 +12,10 @@ const findIndexOfAccountBridge = (state: StateWrapper, address: string) => {
   return state.bridgeleaves.findIndex((leaf) => leaf.toaddress === address);
 };
 
+const findIndexOfAccountAVL = (state: StateWrapper, address: string) => {
+  return state.avlleaves.findIndex((leaf) => leaf.evmAddress === address);
+};
+
 type CreateInput = {
   address: string;
 };
@@ -57,17 +61,17 @@ const create: STF<ERC20, CreateInput> = {
 const requestBridge: STF<ERC20, BridgeInput> = {
   handler: ({ inputs, state, msgSender }) => {
     const { toaddress, amount } = inputs;
-    if (state.erc20leaves.find((leaf) => leaf.address !== toaddress)) {
-      throw new Error("Account already exists");
+    if (state.avlleaves.find((leaf) => leaf.evmAddress !== toaddress)) {
+      throw new Error("Account doesn't exist on avl tree");
     }
-    if (state.erc20leaves.find((leaf) => leaf.balance < amount)) {
+    if (state.avlleaves.find((leaf) => leaf.stakingShares < amount)) {
       throw new Error("Insufficient funds to bridge");
     }
-    const indexerc20 = findIndexOfAccountERC20(state, toaddress);
-    if (state.erc20leaves[indexerc20]?.address !== msgSender) {
-      throw new Error("Unauthorized");
+    if(state.avlleaves.find((leaf) => leaf.stakingShares < 0)) {
+      throw new Error("Invalid amount to bridge");
     }
-    state.erc20leaves[indexerc20].balance -= amount;
+    const indexAVL = findIndexOfAccountAVL(state, toaddress);
+    state.avlleaves[indexAVL].stakingShares -= amount;
     state.bridgeleaves.push({
       toaddress: toaddress,
       amount: amount,
@@ -206,7 +210,7 @@ const bridgeAVLtoApp: STF<ERC20, BridgeAVLtoAppInput> = {
     );
     if (idx === -1) {
       state.avlleaves.push({
-        evmAddress: "",
+        evmAddress: ZeroAddress,
         avlAddress: avlAddress,
         freeBalance: amount,
         stakingShares: 0,
